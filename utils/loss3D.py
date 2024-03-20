@@ -55,15 +55,15 @@ def detD3d(device, D, H, W, epsilon):
     return detD_loss
 
 class LapLossFunc(nn.Module):
-    def __init__(self, weight, device):
+    def __init__(self, weight, device, D, H, W):
         super(LapLossFunc, self).__init__()
-        self.lap = Laplacian(device)
+        self.lap = Laplacian(device, D, H, W)
         self.weight = weight        
     def forward(self, mapping):
         lap = self.lap(mapping)
         return torch.mean(lap**2)
 class Laplacian(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, D, H, W):
         super(Laplacian, self).__init__()
         kernel = np.array([[[0., 0., 0.],
                             [0., 1., 0.],
@@ -76,6 +76,8 @@ class Laplacian(nn.Module):
                            [[0., 0., 0.],
                             [0., 1., 0.],
                             [0., 0., 0.]]])
+        d, h, w = D-1, H-1, W-1
+        self.dstep, self.hstep, self.wstep = 1/d, 1/h, 1/w
         kernel = torch.FloatTensor(kernel).unsqueeze(0).unsqueeze(0)
         self.weight = nn.Parameter(data=kernel.to(device = device), requires_grad=False)
         #self.rep = nn.ReplicationPad2d(1)
@@ -88,9 +90,9 @@ class Laplacian(nn.Module):
         x3 = x[:,:,:,:,2]
         #x1 = F.conv2d(self.rep(x1.unsqueeze(1)), self.weight, padding=0)
         #x2 = F.conv2d(self.rep(x2.unsqueeze(1)), self.weight, padding=0)
-        x1 = F.conv3d(x1.unsqueeze(1), self.weight, padding=0)
-        x2 = F.conv3d(x2.unsqueeze(1), self.weight, padding=0)
-        x3 = F.conv3d(x3.unsqueeze(1), self.weight, padding=0)
+        x1 = F.conv3d(x1.unsqueeze(1), self.weight, padding=0)/self.hstep
+        x2 = F.conv3d(x2.unsqueeze(1), self.weight, padding=0)/self.hstep
+        x3 = F.conv3d(x3.unsqueeze(1), self.weight, padding=0)/self.hstep
         x = torch.cat([x1, x2, x3], dim=1)
         return x
 
